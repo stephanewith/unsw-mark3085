@@ -20,6 +20,7 @@ export async function upsertSubmission(cls, group, payload) {
     brand: payload.brand || null,
     canvas: payload.canvas || {},
     ad: payload.ad || {},
+    banner_url: payload.banner_url || null,
     updated_at: new Date().toISOString(),
   };
   const res = await fetch(REST, {
@@ -35,6 +36,30 @@ export async function upsertSubmission(cls, group, payload) {
     throw new Error(`upsert failed (${res.status}): ${text}`);
   }
   return res.json();
+}
+
+// Upload a banner image to the public `banners` bucket and return its public
+// URL. File is keyed by class+group so a re-upload overwrites the old one.
+export async function uploadBanner(cls, group, file) {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `${cls}/${group}.${ext}`;
+  const uploadUrl = `${SUPABASE_URL}/storage/v1/object/banners/${path}`;
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": file.type || "image/png",
+      "x-upsert": "true", // overwrite if the group re-uploads
+    },
+    body: file,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`upload failed (${res.status}): ${text}`);
+  }
+  // Public URL (bucket is public). Cache-bust so a re-upload shows immediately.
+  return `${SUPABASE_URL}/storage/v1/object/public/banners/${path}?t=${Date.now()}`;
 }
 
 // Load one group's row (or null if none yet).

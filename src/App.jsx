@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { upsertSubmission, loadSubmission, listSubmissions } from "./db.js";
+import { upsertSubmission, loadSubmission, listSubmissions, uploadBanner } from "./db.js";
 import { TUTOR_PASSPHRASE } from "./config.js";
 
 // MARK3085 Week 7 - Integrating Display, SEO & Paid Search across the RACE journey
@@ -257,7 +257,7 @@ function tileStyle(state, big) {
 function FieldLabel({ children }) {
   return <div style={{ fontSize: 13, color: "var(--text-secondary,#666)", margin: "12px 0 4px" }}>{children}</div>;
 }
-function AdPreviewer({ ad, setAd }) {
+function AdPreviewer({ ad, setAd, bannerUrl, onUpload, uploading }) {
   const up = (k) => (e) => setAd({ ...ad, [k]: e.target.value });
   const h1 = ad.headline1 || "Your headline here";
   const h2 = ad.headline2 || "Second headline";
@@ -276,6 +276,21 @@ function AdPreviewer({ ad, setAd }) {
         <textarea value={ad.desc || ""} onChange={up("desc")} maxLength={90} rows={3} style={{ ...inp, resize: "vertical" }} placeholder="Max 90 characters" />
         <FieldLabel>Display banner CTA</FieldLabel>
         <input value={ad.cta || ""} onChange={up("cta")} maxLength={20} style={inp} placeholder="e.g. Shop now" />
+
+        <FieldLabel>Upload your Canva banner (PNG or JPG)</FieldLabel>
+        <label style={{ ...btnStyle, display: "inline-block", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.6 : 1 }}>
+          {uploading ? "Uploading…" : bannerUrl ? "Replace image" : "Choose image"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            disabled={uploading}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
+            style={{ display: "none" }}
+          />
+        </label>
+        <div style={{ fontSize: 12, color: "var(--text-muted,#999)", marginTop: 6 }}>
+          Export your banner from Canva, then upload it here. It travels with your submission.
+        </div>
       </div>
       <div>
         <div style={{ fontSize: 12, color: "var(--text-muted,#999)", marginBottom: 6 }}>Paid search result</div>
@@ -287,7 +302,15 @@ function AdPreviewer({ ad, setAd }) {
           <div style={{ fontSize: 18, color: "#1a0dab", lineHeight: 1.3 }}>{h1} | {h2}</div>
           <div style={{ fontSize: 13, color: "#4d5156", marginTop: 2 }}>{desc}</div>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted,#999)", marginBottom: 6 }}>Display banner</div>
+
+        {bannerUrl && (
+          <>
+            <div style={{ fontSize: 12, color: "var(--text-muted,#999)", marginBottom: 6 }}>Your uploaded Canva banner</div>
+            <img src={bannerUrl} alt="Uploaded Canva banner" style={{ width: "100%", maxWidth: 360, borderRadius: 8, border: "0.5px solid var(--border,#e5e3dc)", marginBottom: 20, display: "block" }} />
+          </>
+        )}
+
+        <div style={{ fontSize: 12, color: "var(--text-muted,#999)", marginBottom: 6 }}>Text banner preview</div>
         <div style={{ width: "100%", maxWidth: 300, aspectRatio: "6 / 5", border: `0.5px solid ${UNSW.yellowDark}`, borderRadius: 8, background: UNSW.ink, color: "#fff", padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.2 }}>{h1}</div>
@@ -346,9 +369,64 @@ function canvasToText(group, cls, canvas, ad, brand) {
 }
 
 // =====================================================================
+// Lululemon worked example (tutor showcase only, not tied to any login
+// and never written to the submissions table)
+// =====================================================================
+const LULU_DEMO = {
+  reach: {
+    banner: 'Bold banner: "Move with intention." Shows a runner in Lululemon gear at dawn on a coastal path, with a "Shop the run edit" button.',
+    audience: "Active women and men 25 to 40 in metro AU who train regularly and value premium, versatile activewear they can wear beyond the gym.",
+    reachLanding: "The seasonal running collection landing page, not the homepage.",
+  },
+  act: {
+    keyword: '"best running leggings" and "gym to street outfits"',
+    blog: '"5 pieces that take you from run to brunch"; "How to choose leggings for high-intensity training"',
+    faq: '"Are Lululemon leggings squat-proof?"; "What is the difference between Align and Wunder Train?"',
+  },
+  convert: {
+    intent: '"buy Align leggings", "Lululemon running shorts", "Wunder Train tights"',
+    searchLanding: "The specific product page for the searched item, with size and colour in stock.",
+  },
+  integrate: {
+    journey: "Display builds brand affinity with people not yet shopping (Reach). SEO content captures them as they research fit and use-cases (Act). Paid search intercepts high-intent buyers typing product names and sends them to a purchasable product page (Convert). Display retargeting then re-engages anyone who browsed but did not buy.",
+  },
+};
+
+function DemoView({ onExit }) {
+  return (
+    <div style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif", color: "var(--text-primary,#1a1a1a)", maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
+      <div style={{ background: UNSW.yellow, borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, color: UNSW.ink, opacity: 0.7 }}>MARK3085 · Week 7 · Worked example</div>
+          <div style={{ fontSize: 18, fontWeight: 500, color: UNSW.ink }}>Lululemon: an integrated RACE journey</div>
+        </div>
+        <button onClick={onExit} style={{ ...btnStyle, background: "transparent", border: `0.5px solid ${UNSW.ink}` }}>Exit</button>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--text-secondary,#666)", marginTop: 0, marginBottom: 16 }}>
+        This is a sample answer to show what "good" looks like across the four stages. Lululemon is not one of the course brands; it is here purely as an illustration.
+      </p>
+      {RACE_FIELDS.map((f) => (
+        <div key={f.key} style={{ ...card, borderLeft: `4px solid ${f.color}`, borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 16, fontWeight: 500, color: f.color }}>{f.stage}</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted,#999)" }}>{f.tool}</span>
+          </div>
+          {f.prompts.map(([pk, label]) => (
+            <div key={pk} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary,#666)", marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 14 }}>{LULU_DEMO[f.key][pk]}</div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// =====================================================================
 // Gate
 // =====================================================================
-function Gate({ onStudent, onTutor }) {
+function Gate({ onStudent, onTutor, onExample }) {
   const [code, setCode] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
@@ -373,15 +451,15 @@ function Gate({ onStudent, onTutor }) {
     <div style={{ maxWidth: 460, margin: "40px auto", ...card, borderTop: `4px solid ${UNSW.yellow}` }}>
       <div style={{ fontSize: 12, color: "var(--text-muted,#999)" }}>MARK3085 · Week 7 Tutorial</div>
       <h1 style={{ margin: "2px 0 16px", fontSize: 20, fontWeight: 500 }}>Integrating Display, SEO & Paid Search</h1>
-      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
-        {[["student", "I'm a student"], ["tutor", "I'm the tutor"]].map(([id, label]) => (
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
+        {[["student", "I'm a student"], ["tutor", "I'm the tutor"], ["example", "Show example"]].map(([id, label]) => (
           <button key={id} onClick={() => { setMode(id); setErr(""); }}
             style={{ ...btnStyle, ...(mode === id ? { background: UNSW.yellow, border: `0.5px solid ${UNSW.yellowDark}`, fontWeight: 500 } : {}) }}>
             {label}
           </button>
         ))}
       </div>
-      {mode === "student" ? (
+      {mode === "student" && (
         <div>
           <FieldLabel>Your group login</FieldLabel>
           <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && enterStudent()} style={inp} placeholder="e.g. PalaceCinemas9413" autoFocus />
@@ -390,11 +468,20 @@ function Gate({ onStudent, onTutor }) {
           </div>
           <button onClick={enterStudent} style={{ ...yellowBtn, width: "100%", padding: "10px" }}>Start</button>
         </div>
-      ) : (
+      )}
+      {mode === "tutor" && (
         <div>
           <FieldLabel>Tutor passphrase</FieldLabel>
           <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && enterTutor()} style={inp} autoFocus />
           <button onClick={enterTutor} style={{ ...yellowBtn, width: "100%", padding: "10px", marginTop: 14 }}>Open submissions</button>
+        </div>
+      )}
+      {mode === "example" && (
+        <div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary,#666)", margin: "0 0 14px" }}>
+            A worked Lululemon example showing an integrated RACE journey. Handy to project before groups start.
+          </div>
+          <button onClick={onExample} style={{ ...yellowBtn, width: "100%", padding: "10px" }}>Show worked example</button>
         </div>
       )}
       {err && <div style={{ fontSize: 13, color: "var(--text-danger,#a32d2d)", marginTop: 12 }}>{err}</div>}
@@ -410,6 +497,8 @@ function StudentApp({ session, onExit }) {
   const [tab, setTab] = useState("warmup");
   const [canvas, setCanvas] = useState({});
   const [ad, setAd] = useState({});
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState("");
   const [exportText, setExportText] = useState("");
 
@@ -420,6 +509,7 @@ function StudentApp({ session, onExit }) {
         if (!live || !d) return;
         setCanvas(d.canvas || {});
         setAd(d.ad || {});
+        setBannerUrl(d.banner_url || "");
       })
       .catch(() => {
         // No saved row yet, or network hiccup. Start blank; the copy/paste
@@ -430,10 +520,31 @@ function StudentApp({ session, onExit }) {
 
   const setField = (k, v) => setCanvas((c) => ({ ...c, [k]: v }));
 
+  const handleUpload = async (file) => {
+    if (file.size > 6 * 1024 * 1024) {
+      setStatus("That image is over 6MB. Please export a smaller version from Canva.");
+      setTimeout(() => setStatus(""), 5000);
+      return;
+    }
+    setUploading(true);
+    setStatus("Uploading banner…");
+    try {
+      const publicUrl = await uploadBanner(cls, group, file);
+      setBannerUrl(publicUrl);
+      // Persist immediately so the image isn't lost if they forget to submit.
+      await upsertSubmission(cls, group, { canvas, ad, brand, banner_url: publicUrl });
+      setStatus("Banner uploaded.");
+    } catch (e) {
+      setStatus("Upload didn't go through. Try again, or show your Canva export directly.");
+    }
+    setUploading(false);
+    setTimeout(() => setStatus(""), 4000);
+  };
+
   const submit = async () => {
     setStatus("Submitting…");
     try {
-      await upsertSubmission(cls, group, { canvas, ad, brand });
+      await upsertSubmission(cls, group, { canvas, ad, brand, banner_url: bannerUrl });
       setStatus("Submitted to tutor.");
     } catch (e) {
       setStatus("Live submit didn't go through. Use the copy below as backup.");
@@ -471,7 +582,7 @@ function StudentApp({ session, onExit }) {
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Draft your ad, see it rendered</h3>
             <button onClick={pullAd} style={yellowBtn}>Send to RACE canvas →</button>
           </div>
-          <AdPreviewer ad={ad} setAd={setAd} />
+          <AdPreviewer ad={ad} setAd={setAd} bannerUrl={bannerUrl} onUpload={handleUpload} uploading={uploading} />
         </div>
       )}
       {tab === "canvas" && (
@@ -523,6 +634,7 @@ function TutorApp({ onExit }) {
         cls: r.cls,
         canvas: r.canvas || {},
         ad: r.ad || {},
+        bannerUrl: r.banner_url || "",
       }));
       out.sort((a, b) => a.group.localeCompare(b.group));
       setRows(out);
@@ -584,6 +696,12 @@ function TutorApp({ onExit }) {
               </div>
             ))}
           </div>
+          {g.bannerUrl && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: STAGE.reach, marginBottom: 4 }}>Uploaded Canva banner</div>
+              <img src={g.bannerUrl} alt="Group banner" style={{ maxWidth: 320, width: "100%", borderRadius: 8, border: "0.5px solid var(--border,#e5e3dc)", display: "block" }} />
+            </div>
+          )}
         </div>
       ))}
 
@@ -637,8 +755,9 @@ function Shell({ brand, cls, onExit, tabs, tab, setTab, children }) {
 export default function App() {
   const [role, setRole] = useState(null);
   if (!role) {
-    return <Gate onStudent={(s) => setRole({ kind: "student", ...s })} onTutor={() => setRole({ kind: "tutor" })} />;
+    return <Gate onStudent={(s) => setRole({ kind: "student", ...s })} onTutor={() => setRole({ kind: "tutor" })} onExample={() => setRole({ kind: "example" })} />;
   }
   if (role.kind === "tutor") return <TutorApp onExit={() => setRole(null)} />;
+  if (role.kind === "example") return <DemoView onExit={() => setRole(null)} />;
   return <StudentApp session={role} onExit={() => setRole(null)} />;
 }
