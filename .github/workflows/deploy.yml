@@ -22,9 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
-      # base must match the repo name so asset URLs resolve on Pages.
+      - run: npm install
       - run: npm run build
         env:
           VITE_BASE: "/${{ github.event.repository.name }}/"
